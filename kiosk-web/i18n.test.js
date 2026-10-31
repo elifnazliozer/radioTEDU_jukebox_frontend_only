@@ -119,3 +119,16 @@ describe('applying translations to the page', () => {
         expect(storage.get('kiosk_lang')).toBe('en');
     });
 });
+
+describe('contentLang', () => {
+    it('marks user text so uppercase styling uses the right casing rules', () => {
+        expect(i18n.contentLang('Design Test')).toBe('en');
+        expect(i18n.contentLang('Işık')).toBe('tr');
+
+        const el = document.createElement('span');
+        i18n.setPlainText(el, 'Design Test');
+        expect(el.getAttribute('lang')).toBe('en');
+        i18n.setText(el, 'stage.anonymous');
+        expect(el.hasAttribute('lang')).toBe(false);
+    });
+});

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { flushSync } from 'react-dom';
 import axios, { isAxiosError } from 'axios';
 import { io, Socket } from 'socket.io-client';
 import {
@@ -28,6 +27,7 @@ import { AdminDashboard, type DeviceSummary } from './AdminDashboard';
 import { buildQueueRequestPayload, getSearchResultKey, getSongQueueKey, type CatalogSearchSong } from './jukeboxCatalog';
 import { buildGuestQueueHeaders } from './guestFingerprint';
 import { resolveKioskStatus, type KioskStatus } from './kioskStatus';
+import { useAlbumColor } from './albumColor';
 import {
   formatSongScore,
   getDisplayedSongScore,
@@ -37,7 +37,7 @@ import {
 } from './nowPlayingVotes';
 import { resolveWebRuntimeConfig } from './runtimeConfig';
 import radioTeduLogo from './assets/radiotedu-logo.png';
-import { I18nContext, LANG_STORAGE_KEY, readInitialLang, translate, useI18n, type Lang, type MessageKey } from './i18n';
+import { I18nContext, LANG_STORAGE_KEY, contentLang, readInitialLang, translate, useI18n, type Lang, type MessageKey } from './i18n';
 
 const runtimeConfig = resolveWebRuntimeConfig({
   windowOrigin: window.location.origin,
@@ -166,10 +166,15 @@ interface LoginViewProps {
 }
 
 type SearchStatus = 'idle' | 'loading' | 'done' | 'error';
+// Matches the opacity transition on #root.is-switching-lang in studio.css.
+const LANG_FADE_MS = 120;
+const MIN_GUEST_NAME_LENGTH = 2;
 const MIN_SEARCH_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 350;
 const SEARCH_SKELETON_ROWS = [0, 1, 2, 3, 4];
 const LYRICS_RETRY_DELAYS_MS = [4000, 10000];
+// While lrclib (or the API) is down, keep checking until it is back or the song changes.
+const LYRICS_OUTAGE_RETRY_MS = 30000;
 
 const LanguageToggle = () => {
   const { lang, setLang, t } = useI18n();
@@ -267,6 +272,10 @@ const ConsoleMenu = ({ user, onOpenAdmin, logout }: ConsoleMenuProps) => {
   );
 };
 
+// One pass of the words is ~800px; each half of the track repeats it so a 4K-wide
+// window never shows the end of the strip. The animation length scales to match.
+const TICKER_REPEATS = 6;
+
 const StudioTicker = () => {
   const { t } = useI18n();
   const words = t('ticker.words').split('|');
@@ -275,9 +284,11 @@ const StudioTicker = () => {
       <div className="studio-ticker-track">
         {[0, 1].map((copy) => (
           <span key={copy}>
-            {words.map((word) => (
-              <span key={word} className="studio-ticker-item">{word}</span>
-            ))}
+            {Array.from({ length: TICKER_REPEATS }, (_, pass) =>
+              words.map((word) => (
+                <span key={`${pass}-${word}`} className="studio-ticker-item">{word}</span>
+              )),
+            )}
           </span>
         ))}
       </div>
@@ -315,6 +326,15 @@ const LoginView = ({
   logout,
 }: LoginViewProps) => {
   const { t } = useI18n();
+  const [guestNameInvalid, setGuestNameInvalid] = useState(false);
+  // The API rejects names shorter than 2 characters; say so here instead of a generic sign-in error.
+  const submitGuestName = () => {
+    if (guestName.trim().length < MIN_GUEST_NAME_LENGTH) {
+      setGuestNameInvalid(true);
+      return;
+    }
+    handleGuestLogin();
+  };
   return (
   <main className="arcade-login studio studio-login">
     <header className="studio-topbar studio-login-topbar">
@@ -432,12 +452,22 @@ const LoginView = ({
                 className="arcade-input studio-input"
                 placeholder={t('login.guestPlaceholder')}
                 value={guestName}
-                onChange={(event) => setGuestName(event.target.value)}
+                aria-invalid={guestNameInvalid}
+                aria-describedby={guestNameInvalid ? 'guest-name-error' : undefined}
+                onChange={(event) => {
+                  setGuestName(event.target.value);
+                  setGuestNameInvalid(false);
+                }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !loading) handleGuestLogin();
+                  if (event.key === 'Enter' && !loading) submitGuestName();
                 }}
               />
-              <button className="studio-primary" onClick={handleGuestLogin} disabled={loading}>
+              {guestNameInvalid && (
+                <p id="guest-name-error" className="studio-field-error" role="alert">
+                  {t('login.guestNameTooShort')}
+                </p>
+              )}
+              <button className="studio-primary" onClick={submitGuestName} disabled={loading}>
                 {loading ? t('common.connecting') : t('login.quickStart')} <ChevronRight size={18} />
               </button>
               <p className="studio-field-help">{t('login.guestHelp')}</p>
@@ -456,10 +486,18 @@ const LoginView = ({
     </div>
 
     {showLoginModal && (
-      <div className="modal-screen" role="dialog" aria-modal="true" aria-label={t('login.memberLogin')}>
+      <div
+        className="modal-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('login.memberLogin')}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setShowLoginModal(false);
+        }}
+      >
         <section className="modal-card compact">
           <button className="modal-close" onClick={() => setShowLoginModal(false)} aria-label={t('common.close')}>
-            x
+            <X size={16} />
           </button>
           <p className="eyebrow amber">{t('login.account')}</p>
           <h2>{t('login.memberLogin')}</h2>
@@ -480,7 +518,7 @@ const LoginView = ({
               {t('login.username')}
               <input
                 className="arcade-input"
-                placeholder="admin@radiotedu.com"
+                placeholder={t('login.emailPlaceholder')}
                 value={email}
                 autoFocus
                 onChange={(event) => setEmail(event.target.value)}
@@ -700,7 +738,7 @@ const SyncedLyricsCard = ({
   interpolatedProgress: number;
 }) => {
   const { t } = useI18n();
-  const [lyricsResult, setLyricsResult] = useState<{ trackKey: string; lyrics: LyricsData | null } | null>(null);
+  const [lyricsResult, setLyricsResult] = useState<{ trackKey: string; lyrics: LyricsData | null; unavailable: boolean } | null>(null);
   const activeLineRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -710,6 +748,7 @@ const SyncedLyricsCard = ({
   const trackKey = title && artist ? JSON.stringify([title, artist, durationMs]) : null;
   const currentLyricsResult = trackKey && lyricsResult?.trackKey === trackKey ? lyricsResult : null;
   const lyrics = currentLyricsResult?.lyrics ?? null;
+  const lyricsUnavailable = Boolean(currentLyricsResult?.unavailable) && !lyrics;
   const loading = trackKey !== null && currentLyricsResult === null;
 
   useEffect(() => {
@@ -730,15 +769,17 @@ const SyncedLyricsCard = ({
     const load = (attempt: number) => {
       axios
         .get<{ data: LyricsData | null }>(`${API_URL}/api/v1/jukebox/lyrics?${params.toString()}`)
-        .then((res) => res.data.data || null)
+        .then((res) => ({ lyrics: res.data.data || null, unavailable: false }))
         .catch((err) => {
+          // A 503 means lrclib is down; any other failure means the API could not be reached.
+          // Either way the song may well have lyrics, so this is not shown as "no lyrics".
           console.warn('Lyrics fetch error:', err);
-          return null;
+          return { lyrics: null, unavailable: true };
         })
-        .then((nextLyrics) => {
+        .then(({ lyrics: nextLyrics, unavailable }) => {
           if (!isMounted) return;
-          setLyricsResult({ trackKey, lyrics: nextLyrics });
-          const retryDelay = LYRICS_RETRY_DELAYS_MS[attempt];
+          setLyricsResult({ trackKey, lyrics: nextLyrics, unavailable });
+          const retryDelay = unavailable ? LYRICS_OUTAGE_RETRY_MS : LYRICS_RETRY_DELAYS_MS[attempt];
           if (!nextLyrics && retryDelay !== undefined) {
             retryTimer = window.setTimeout(() => load(attempt + 1), retryDelay);
           }
@@ -786,7 +827,15 @@ const SyncedLyricsCard = ({
           <span>{t('lyrics.title')}</span>
         </div>
         <span className={`lyrics-badge ${lyrics?.synced ? '' : lyrics?.plainLyrics ? 'plain' : 'none'}`}>
-          {loading ? t('lyrics.searching') : lyrics?.synced ? t('lyrics.synced') : lyrics?.plainLyrics ? t('lyrics.plain') : t('lyrics.none')}
+          {loading
+            ? t('lyrics.searching')
+            : lyrics?.synced
+              ? t('lyrics.synced')
+              : lyrics?.plainLyrics
+                ? t('lyrics.plain')
+                : lyricsUnavailable
+                  ? t('lyrics.unavailable')
+                  : t('lyrics.none')}
         </span>
       </div>
 
@@ -816,6 +865,8 @@ const SyncedLyricsCard = ({
                 {line}
               </div>
             ))
+        ) : lyricsUnavailable ? (
+          <div className="lyrics-placeholder" role="status">{t('lyrics.unavailableBody')}</div>
         ) : (
           <div className="lyrics-placeholder">{t('lyrics.empty')}</div>
         )}
@@ -902,8 +953,15 @@ const JukeboxView = ({
   const { t } = useI18n();
   const nowPlayingCurrentVote = nowPlaying ? resolveDisplayedVote(nowPlaying, myVotes) : undefined;
   const nowPlayingSongScore = formatSongScore(nowPlaying ? getDisplayedSongScore(nowPlaying) : 0);
-  const duration = progress?.duration || (nowPlaying?.duration_ms ? nowPlaying.duration_ms / 1000 : (nowPlaying?.duration_seconds || 0));
-  const progressPercent = duration ? Math.min(100, (interpolatedProgress / duration) * 100) : 0;
+  const trackDuration = nowPlaying?.duration_ms ? nowPlaying.duration_ms / 1000 : (nowPlaying?.duration_seconds || 0);
+  // Right after a song change the playback state can still describe the previous track;
+  // ignore it until its length matches the song on screen.
+  const progressMatchesTrack = Boolean(progress) && (!trackDuration || Math.abs(progress!.duration - trackDuration) <= 3);
+  const duration = (progressMatchesTrack && progress?.duration) || trackDuration;
+  const elapsed = progressMatchesTrack ? interpolatedProgress : 0;
+  const progressPercent = duration ? Math.min(100, (elapsed / duration) * 100) : 0;
+  const kioskOffline = kioskStatus === 'offline';
+  const albumColor = useAlbumColor(nowPlaying?.cover_url);
   const supervoteAvailable = hasSupervoteAvailableToday(user.last_super_vote_at);
 
   return (
@@ -1042,12 +1100,15 @@ const JukeboxView = ({
           </div>
         </section>
 
-        <main className="studio-panel studio-stage now-playing-panel">
+        <main
+          className="studio-panel studio-stage now-playing-panel"
+          style={albumColor ? ({ '--np-album-color': `rgb(${albumColor})` } as CSSProperties) : undefined}
+        >
           <div className="studio-label">
             <span><span className="studio-label-index">02 / </span>{t('console.nowPlaying')}</span>
-            <span className={nowPlaying ? 'studio-live is-on' : 'studio-live'}>
+            <span className={nowPlaying && !kioskOffline ? 'studio-live is-on' : 'studio-live'}>
               <i></i>
-              {nowPlaying ? t('console.live') : t('console.idle')}
+              {!nowPlaying ? t('console.idle') : kioskOffline ? t('status.offline') : t('console.live')}
             </span>
           </div>
 
@@ -1059,17 +1120,17 @@ const JukeboxView = ({
               </div>
 
               <div className="studio-track">
-                <h2>{nowPlaying.title}</h2>
+                <h2 lang={contentLang(nowPlaying.title)}>{nowPlaying.title}</h2>
                 <p className="studio-artist">{nowPlaying.artist}</p>
                 <p className="studio-request">
-                  <User size={14} /> {t('console.requestedBy')} <strong>{nowPlaying.added_by_name || 'RadioTEDU'}</strong>
+                  <User size={14} /> {t('console.requestedBy')} <strong lang={contentLang(nowPlaying.added_by_name)}>{nowPlaying.added_by_name || 'RadioTEDU'}</strong>
                 </p>
               </div>
 
-              <StudioEqualizer active />
+              <StudioEqualizer active={!kioskOffline} />
 
               <div className="studio-progress">
-                <span>{formatTime(interpolatedProgress)}</span>
+                <span>{formatTime(elapsed)}</span>
                 <div className="studio-progress-track">
                   <span style={{ width: `${progressPercent}%` }}></span>
                 </div>
@@ -1113,7 +1174,7 @@ const JukeboxView = ({
                 </div>
               </div>
 
-              <SyncedLyricsCard nowPlaying={nowPlaying} interpolatedProgress={interpolatedProgress} />
+              <SyncedLyricsCard nowPlaying={nowPlaying} interpolatedProgress={elapsed} />
             </div>
           ) : (
             <div className="studio-empty">
@@ -1163,10 +1224,18 @@ const JukeboxView = ({
       )}
 
       {showLoginModal && (
-        <div className="modal-screen" role="dialog" aria-modal="true" aria-label={t('login.memberLogin')}>
+        <div
+          className="modal-screen"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('login.memberLogin')}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowLoginModal(false);
+          }}
+        >
           <section className="modal-card compact">
             <button className="modal-close" onClick={() => setShowLoginModal(false)} aria-label={t('common.close')}>
-              x
+              <X size={16} />
             </button>
             <p className="eyebrow amber">{t('login.account')}</p>
             <h2>{t('login.memberLogin')}</h2>
@@ -1187,7 +1256,7 @@ const JukeboxView = ({
                 {t('login.username')}
                 <input
                   className="arcade-input"
-                  placeholder="admin@radiotedu.com"
+                  placeholder={t('login.emailPlaceholder')}
                   value={email}
                   autoFocus
                   onChange={(event) => setEmail(event.target.value)}
@@ -1217,6 +1286,7 @@ const JukeboxView = ({
 function App() {
   const [lang, setLangState] = useState<Lang>(readInitialLang);
   const langRef = useRef(lang);
+  const langFadeTimerRef = useRef<number | undefined>(undefined);
   // Callbacks read the language through a ref so switching it doesn't re-create them.
   const tr = (key: MessageKey, params?: Record<string, string | number>) => translate(langRef.current, key, params);
 
@@ -1268,7 +1338,38 @@ function App() {
     setShowLeaderboard(false);
     setLeaderboardClosing(false);
   };
+  const closeLeaderboard = () => {
+    setLeaderboardClosing(true);
+    // animationend never fires if the browser skips animations (e.g. a background tab).
+    window.clearTimeout(leaderboardCloseTimerRef.current);
+    leaderboardCloseTimerRef.current = window.setTimeout(finishLeaderboardClose, 400);
+  };
   const [showAdminModal, setShowAdminModal] = useState(false);
+
+  // Escape closes the topmost dialog: admin console, then leaderboard, then member sign-in.
+  const closeTopDialogRef = useRef<() => boolean>(() => false);
+  closeTopDialogRef.current = () => {
+    if (showAdminModal) {
+      setShowAdminModal(false);
+      return true;
+    }
+    if (showLeaderboard && !leaderboardClosing) {
+      closeLeaderboard();
+      return true;
+    }
+    if (showLoginModal) {
+      setShowLoginModal(false);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && closeTopDialogRef.current()) event.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const deviceRef = useRef<DeviceSummary | null>(null);
   const leaderboardRequestSeqRef = useRef(0);
   const leaderboardPeriodRef = useRef<'total' | 'monthly'>('total');
@@ -1560,11 +1661,11 @@ function App() {
   }, [device?.id, fetchCurrentQueue]);
 
   const handleGuestLogin = async () => {
-    if (!guestName) return;
+    if (guestName.trim().length < MIN_GUEST_NAME_LENGTH) return;
     try {
       setLoading(true);
       const res = await axios.post<{ data: { user: AppUser } }>(`${API_URL}/api/v1/auth/guest`, {
-        display_name: guestName,
+        display_name: guestName.trim(),
       });
       const userData = res.data.data.user;
       setUser(userData);
@@ -1598,9 +1699,8 @@ function App() {
       const currentCode = deviceCode || deviceCodeInput;
       if (currentCode) void connectToDevice(currentCode);
     } catch (error) {
-      const errText = getErrorMessage(error, tr('toast.loginCheck'));
-      setLoginError(errText);
-      setMsg({ type: 'error', text: errText });
+      // The sign-in dialog shows this inline; a toast on top would repeat it.
+      setLoginError(getErrorMessage(error, tr('toast.loginCheck')));
     } finally {
       setLoading(false);
     }
@@ -1746,10 +1846,18 @@ function App() {
     setLang: (next: Lang) => {
       if (next === langRef.current) return;
       langRef.current = next;
-      // Crossfade old and new text where the browser supports view transitions.
+      // Fade the page out, switch, fade back in. Not a View Transition: mobile browsers take
+      // that page snapshot at a different size while the address bar moves, so it played
+      // back squashed on phones.
       const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      if (document.startViewTransition && !reduceMotion) {
-        document.startViewTransition(() => flushSync(() => setLangState(next)));
+      const root = document.getElementById('root');
+      if (root && !reduceMotion) {
+        window.clearTimeout(langFadeTimerRef.current);
+        root.classList.add('is-switching-lang');
+        langFadeTimerRef.current = window.setTimeout(() => {
+          setLangState(next);
+          window.requestAnimationFrame(() => root.classList.remove('is-switching-lang'));
+        }, LANG_FADE_MS);
       } else {
         setLangState(next);
       }
@@ -1839,12 +1947,7 @@ function App() {
           loaded={leaderboardLoaded}
           closing={leaderboardClosing}
           onPeriodChange={(period) => void fetchLeaderboard(period)}
-          onClose={() => {
-            setLeaderboardClosing(true);
-            // animationend never fires if the browser skips animations (e.g. a background tab).
-            window.clearTimeout(leaderboardCloseTimerRef.current);
-            leaderboardCloseTimerRef.current = window.setTimeout(finishLeaderboardClose, 400);
-          }}
+          onClose={closeLeaderboard}
           onExited={finishLeaderboardClose}
         />
       )}

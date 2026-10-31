@@ -4,6 +4,8 @@
  */
 
 const LYRICS_RETRY_DELAYS_MS = [4000, 10000];
+// While lrclib (or the API) is down, keep checking until it is back or the song changes.
+const LYRICS_OUTAGE_RETRY_MS = 30000;
 
 // Text goes through KioskI18n when it is loaded (always on the page; not in some unit tests).
 function kioskI18n() {
@@ -486,8 +488,9 @@ class KioskApp {
         const showSpotifyConnectCta = !this.spotifyDeviceAuthReady || !this.isSpotifyDeviceAuthConnected();
         // Build the card in one string: appending to innerHTML would let the browser
         // auto-close the card first and push the Spotify button outside it.
+        // Starting is the main action; connecting Spotify is offered next to it, not instead of it.
         const spotifyConnectCta = showSpotifyConnectCta ? `
-                <button id="startupSpotifyConnectButton" class="startup-button" type="button" ${ki('startup.spotifyConnect')}>${kt('startup.spotifyConnect')}</button>
+                <button id="startupSpotifyConnectButton" class="startup-button is-secondary" type="button" ${ki('startup.spotifyConnect')}>${kt('startup.spotifyConnect')}</button>
                 <p class="startup-footnote" ${ki('startup.spotifyFootnote')}>${kt('startup.spotifyFootnote')}</p>
             ` : '';
         div.innerHTML = `
@@ -497,6 +500,7 @@ class KioskApp {
                 </div>
                 <h2 class="startup-title" ${ki('startup.title')}>${kt('startup.title')}</h2>
                 <p class="startup-message" ${ki('startup.message')}>${kt('startup.message')}</p>
+                <button id="startupStartButton" class="startup-button" type="button" ${ki('startup.start')}>${kt('startup.start')}</button>
                 ${spotifyConnectCta}
             </div>
         `;
@@ -524,16 +528,29 @@ class KioskApp {
     // ===== Waveform Visualization =====
     setupWaveform() {
         if (!this.waveformCanvas) return;
-
-        const rect = this.waveformCanvas.parentElement.getBoundingClientRect();
-        this.waveformCanvas.width = rect.width;
-        this.waveformCanvas.height = rect.height;
         this.drawWaveform();
+    }
+
+    /**
+     * Match the canvas backing store to its box. The canvas is first measured while the
+     * playing state is hidden (0×0), so it has to be re-synced once it becomes visible.
+     */
+    syncWaveformSize() {
+        const parent = this.waveformCanvas.parentElement;
+        if (!parent) return;
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.round(parent.clientWidth * dpr);
+        const height = Math.round(parent.clientHeight * dpr);
+        if (width && height && (this.waveformCanvas.width !== width || this.waveformCanvas.height !== height)) {
+            this.waveformCanvas.width = width;
+            this.waveformCanvas.height = height;
+        }
     }
 
     drawWaveform(progressPercent = this.waveformProgress ?? 0) {
         if (!this.waveformCtx) return;
 
+        this.syncWaveformSize();
         const ctx = this.waveformCtx;
         const width = this.waveformCanvas.width;
         const height = this.waveformCanvas.height;
@@ -546,13 +563,14 @@ class KioskApp {
         if (!this.waveformBars || this.waveformBars.length !== barCount) {
             this.waveformBars = Array.from({ length: barCount }, () => Math.random() * 0.8 + 0.12);
         }
-        const barWidth = width / barCount - 2;
+        const barGap = 2 * (window.devicePixelRatio || 1);
+        const barWidth = width / barCount - barGap;
         const playedBars = Math.round((progressPercent / 100) * barCount);
 
         // RadioTEDU studio equalizer: played bars in full red, the rest dimmed.
         for (let i = 0; i < barCount; i++) {
             const barHeight = this.waveformBars[i] * height;
-            const x = i * (barWidth + 2);
+            const x = i * (barWidth + barGap);
             const y = height - barHeight;
 
             const accentPeak = i % 7 === 3;
@@ -1527,18 +1545,30 @@ class KioskApp {
     async updateProgress() {
         if (this.spotifyController) {
             await this.refreshSpotifyPlaybackStateFromSdk();
-        } else {
-            await this.pollLiveSpotifyPlaybackState();
         }
 
         const currentSong = this.queueData?.now_playing || this.currentPlayingSong;
+        // The kiosk's own Spotify player only knows what it plays itself. When the song is
+        // playing on another Spotify Connect device (a phone, the desktop app), fall back to
+        // the account's playback state from the backend instead of showing 0:00.
+        // Local files play in this page's <audio>; the account's Spotify state says nothing about them.
+        const isLocalSong = currentSong?.playback_type === 'local' || currentSong?.source_type === 'local';
+        const sdkPlaysCurrentSong = Boolean(
+            this.spotifyPlayerState?.track_uri
+            && this.spotifyPlayerState?.duration_ms
+            && (!currentSong?.spotify_uri || this.spotifyPlayerState.track_uri === currentSong.spotify_uri)
+        );
+        if (!sdkPlaysCurrentSong && !isLocalSong) {
+            await this.pollLiveSpotifyPlaybackState();
+        }
+
         let current = 0;
         let total = 0;
 
-        if (this.spotifyPlayerState?.track_uri && this.spotifyPlayerState?.duration_ms) {
+        if (sdkPlaysCurrentSong) {
             current = (this.spotifyPlayerState.position_ms || 0) / 1000;
             total = (this.spotifyPlayerState.duration_ms || 0) / 1000;
-        } else if (this.liveSpotifyState && typeof this.liveSpotifyState.progressMs === 'number') {
+        } else if (!isLocalSong && this.liveSpotifyState && typeof this.liveSpotifyState.progressMs === 'number') {
             const elapsedSinceSync = Math.max(0, Date.now() - this.liveSpotifyState.syncedAt);
             current = (this.liveSpotifyState.progressMs + (this.liveSpotifyState.isPlaying ? elapsedSinceSync : 0)) / 1000;
             total = (this.liveSpotifyState.durationMs || (currentSong?.duration_ms ?? 0)) / 1000;
@@ -1669,9 +1699,16 @@ class KioskApp {
         const playingState = document.getElementById('playingState');
         this.transitionVisualState(playingState, idleState);
 
+        // Spotify state changes re-sync the same song several times a second; only a new
+        // song may reset the waveform and lyrics, otherwise both visibly flicker.
+        const songKey = `${song.artist} - ${song.title}`.toLowerCase();
+        const isSameSong = this.displayedSongKey === songKey;
+        this.displayedSongKey = songKey;
+
         // Album art
         const albumArt = document.getElementById('albumArt');
-        albumArt.src = song.cover_url || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%231a1a2e" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%23666" font-size="30">🎵</text></svg>';
+        const albumSrc = song.cover_url || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%231a1a2e" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%23666" font-size="30">🎵</text></svg>';
+        if (albumArt.getAttribute('src') !== albumSrc) albumArt.src = albumSrc;
 
         // Update glow color based on album (could be dynamic)
         const glow = document.getElementById('albumGlow');
@@ -1696,10 +1733,12 @@ class KioskApp {
         // Show live indicator
         document.getElementById('liveIndicator').style.display = 'flex';
 
+        this.extras?.onPlaying(song);
+        if (isSameSong) return;
+
         // New song, new waveform shape
         this.waveformBars = null;
         this.drawWaveform(0);
-        this.extras?.onPlaying(song);
 
         // Load & Sync Lyrics
         this.loadLyricsForSong(song);
@@ -1761,12 +1800,16 @@ class KioskApp {
                 }
             }
         } catch (error) {
+            // A failed request (lrclib down returns 503) is not "no lyrics": say so and keep
+            // checking until lyrics are reachable again or the song changes.
             if (this.lyricsState.trackKey !== trackKey) return;
-            if (this.scheduleLyricsRetry(song, trackKey, attempt)) return;
-            if (scroller) scroller.innerHTML = `<div class="lyrics-placeholder" ${ki('lyrics.unavailable')}>${kt('lyrics.unavailable')}</div>`;
+            if (scroller) scroller.innerHTML = `<div class="lyrics-placeholder" ${ki('lyrics.outage')}>${kt('lyrics.outage')}</div>`;
             if (badge) {
-                this.setLyricsBadge(badge, 'lyrics.none', 'lyrics-badge none');
+                this.setLyricsBadge(badge, 'lyrics.offline', 'lyrics-badge none');
             }
+            this.lyricsRetryTimer = setTimeout(() => {
+                if (this.lyricsState.trackKey === trackKey) this.loadLyricsForSong(song, attempt + 1);
+            }, LYRICS_OUTAGE_RETRY_MS);
         }
     }
 
@@ -1858,6 +1901,7 @@ class KioskApp {
         const playingState = document.getElementById('playingState');
         this.transitionVisualState(idleState, playingState);
         this.extras?.onIdle();
+        this.displayedSongKey = null;
 
         // Hide live indicator
         document.getElementById('liveIndicator').style.display = 'none';
@@ -1916,7 +1960,7 @@ class KioskApp {
                     <div class="up-next-label" ${ki('queue.upNext')}>${kt('queue.upNext')}</div>
                     <div class="queue-song-title">${this.escapeHtml(upNext.title)}</div>
                     <div class="queue-song-artist">${this.escapeHtml(upNext.artist)}</div>
-                    ${upNext.added_by_name ? `<div class="up-next-requester"><span ${ki('queue.requestedBy')}>${kt('queue.requestedBy')}</span> <strong>${this.escapeHtml(upNext.added_by_name)}</strong></div>` : ''}
+                    ${upNext.added_by_name ? `<div class="up-next-requester"><span ${ki('queue.requestedBy')}>${kt('queue.requestedBy')}</span> <strong lang="${kioskI18n()?.contentLang?.(upNext.added_by_name) ?? ''}">${this.escapeHtml(upNext.added_by_name)}</strong></div>` : ''}
                 </div>
                 ${renderVotes(upNext)}
             </div>`;

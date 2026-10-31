@@ -27,11 +27,26 @@ body.controls-visible .logout-btn {
 
 /* ---------- Language toggle (shares the logout button look) ---------- */
 
-/* Language switch: short crossfade of the whole screen (View Transitions API). */
-::view-transition-old(root),
+/* Language switch (View Transitions API). Turkish and English lines wrap differently, so a
+   crossfade shows both layouts on top of each other; fade out, then in, so they never overlap. */
+::view-transition-old(root) {
+    animation: kiosk-lang-out 120ms ease-in both;
+}
+
 ::view-transition-new(root) {
-    animation-duration: 260ms;
-    animation-timing-function: ease;
+    animation: kiosk-lang-in 160ms ease-out 110ms both;
+}
+
+@keyframes kiosk-lang-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes kiosk-lang-in {
+    from {
+        opacity: 0;
+    }
 }
 
 .lang-toggle-btn {
@@ -93,8 +108,8 @@ body.controls-visible .logout-btn {
     height: 22px;
     display: inline-grid;
     place-items: center;
-    background: var(--s-red);
-    color: #fff;
+    background: var(--s-accent);
+    color: var(--s-ink);
     font-size: 12px;
 }
 
@@ -153,9 +168,14 @@ body.controls-visible .logout-btn {
 
 /* ---------- Karaoke lyrics ---------- */
 
+/*
+ * Fixed sizes on purpose: a font that scales with the line or viewport made the card
+ * grow and shrink every line, shoving the stage around and into the cover art.
+ * 3 single-line neighbours + a two-line active line always fit the 176px box.
+ */
 .lyrics-card.is-karaoke .lyrics-scroller {
+    height: 176px;
     max-height: none;
-    min-height: clamp(150px, 20vh, 230px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -168,9 +188,10 @@ body.controls-visible .logout-btn {
     padding: 0;
     background: none;
     box-shadow: none;
+    flex-shrink: 0;
     text-align: left;
-    line-height: 1.15;
-    transition: color 0.3s ease, font-size 0.3s ease;
+    line-height: 1.25;
+    transition: color 0.3s ease;
 }
 
 .lyrics-card.is-karaoke .lyric-line.near,
@@ -179,7 +200,10 @@ body.controls-visible .logout-btn {
 }
 
 .lyrics-card.is-karaoke .lyric-line.near {
-    font-size: clamp(16px, 1.3vw, 22px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 18px;
     font-weight: 600;
     color: var(--s-faint);
 }
@@ -189,8 +213,15 @@ body.controls-visible .logout-btn {
 }
 
 .lyrics-card.is-karaoke .lyric-line.active {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
     padding: 4px 0 4px 14px;
-    font-size: clamp(28px, 2.8vw, 52px);
+    font-size: 30px;
+    line-height: 1.15;
     font-weight: 900;
     letter-spacing: -0.02em;
     color: var(--s-paper);
@@ -422,7 +453,7 @@ body.controls-visible .logout-btn {
     font-size: clamp(14px, 1.1vw, 18px);
     font-weight: 700;
     letter-spacing: 0.18em;
-    color: var(--s-red-text);
+    color: var(--s-accent);
 }
 
 .idle-steps {
@@ -447,7 +478,7 @@ body.controls-visible .logout-btn {
     font-size: clamp(36px, 3.6vw, 64px);
     font-weight: 700;
     line-height: 1;
-    color: var(--s-red);
+    color: var(--s-accent);
 }
 
 .idle-steps strong {
@@ -547,11 +578,11 @@ body.controls-visible .logout-btn {
     color: var(--s-muted);
 }
 
-/* Short wall screens (720p and similar): tighten the stage so nothing is cut off. */
-@media (max-height: 800px) {
+/* Short wall screens (720p, or 1080p with browser chrome): tighten the stage so nothing is cut off. */
+@media (max-height: 1000px) {
     .song-title {
         margin-top: 12px;
-        font-size: clamp(40px, 4.6vw, 80px);
+        font-size: clamp(36px, 3.8vw, 68px);
     }
 
     .song-artist {
@@ -571,12 +602,17 @@ body.controls-visible .logout-btn {
         padding: 12px 16px;
     }
 
+    .lyrics-scroller,
     .lyrics-card.is-karaoke .lyrics-scroller {
-        min-height: 128px;
+        height: 144px;
+    }
+
+    .lyrics-card.is-karaoke .lyric-line.near {
+        font-size: 16px;
     }
 
     .lyrics-card.is-karaoke .lyric-line.active {
-        font-size: clamp(24px, 2.4vw, 40px);
+        font-size: 24px;
     }
 
     .queue-item.up-next {
@@ -609,6 +645,8 @@ body.controls-visible .logout-btn {
     }
 
     .empty-queue {
+        /* style.css reserves 180px, which pushes the card past the bottom of a 720p screen. */
+        min-height: 0;
         gap: 4px;
         margin-top: 8px;
         padding: 14px 16px;
@@ -616,6 +654,53 @@ body.controls-visible .logout-btn {
 
     .empty-queue .material-symbols-rounded {
         font-size: 24px;
+    }
+}
+
+/* Wall TVs (1080p and up): 11–13px labels sized for a desk monitor can't be read from
+   across the room, so the small print steps up. Layout and big type stay as they are. */
+@media (min-width: 1600px) and (min-height: 900px) {
+    .kiosk-label,
+    .kiosk-label .queue-badge,
+    .studio-tag {
+        font-size: 15px;
+    }
+
+    .device-badge,
+    .live-indicator,
+    .connection-badge,
+    .logout-btn {
+        font-size: 14px;
+    }
+
+    .studio-ticker-track > span > span {
+        font-size: 15px;
+    }
+
+    .qr-steps {
+        font-size: 16px;
+    }
+
+    .qr-steps span {
+        width: 26px;
+        height: 26px;
+        font-size: 15px;
+    }
+
+    .qr-code-label {
+        font-size: 15px;
+    }
+
+    .qr-hint .qr-link {
+        font-size: 14px;
+    }
+
+    .idle-tag {
+        font-size: 16px;
+    }
+
+    .kiosk-offline-kicker {
+        font-size: 15px;
     }
 }
 

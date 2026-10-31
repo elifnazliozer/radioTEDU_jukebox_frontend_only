@@ -41,6 +41,10 @@
             return `<p class="spotify-device-auth-setup-message" ${tattrs('spotify.defaultReason')}>${escapeHtml(tx('spotify.defaultReason'))}</p>`;
         }
         const reasonKey = i18n()?.reasonKey?.(reason);
+        // "Connection required" just repeats the card title; say what to do instead.
+        if (reasonKey === 'spotify.reasonRequired') {
+            return reasonMarkup('');
+        }
         if (reasonKey) {
             return `<p class="spotify-device-auth-setup-message" ${tattrs(reasonKey)}>${escapeHtml(tx(reasonKey))}</p>`;
         }

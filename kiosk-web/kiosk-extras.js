@@ -55,16 +55,16 @@
             && item.added_by_name);
     }
 
+    const HUE_BUCKETS = 12;
+
     /**
-     * Average colour of the reasonably saturated, mid-brightness pixels of an image
-     * (RGBA byte array). Grey and near-black/white pixels are ignored so the glow
-     * picks up the cover's actual colour. Returns "r, g, b" or null.
+     * Dominant colour of an image (RGBA byte array), Spotify style: the reasonably
+     * saturated pixels are grouped by hue and the heaviest group (weighted by
+     * saturation) is averaged. Averaging every colourful pixel turned mixed covers
+     * into mud. Grey and near-black/white pixels are ignored. Returns "r, g, b" or null.
      */
     function pickAmbientColor(pixels) {
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let count = 0;
+        const buckets = Array.from({ length: HUE_BUCKETS }, () => ({ r: 0, g: 0, b: 0, count: 0, weight: 0 }));
         for (let i = 0; i + 3 < pixels.length; i += 4) {
             const pr = pixels[i];
             const pg = pixels[i + 1];
@@ -72,13 +72,49 @@
             const max = Math.max(pr, pg, pb);
             const min = Math.min(pr, pg, pb);
             if (pixels[i + 3] < 128 || max < 40 || min > 225 || max - min < 40) continue;
-            r += pr;
-            g += pg;
-            b += pb;
-            count += 1;
+            const delta = max - min;
+            let hue;
+            if (max === pr) hue = ((pg - pb) / delta + 6) % 6;
+            else if (max === pg) hue = (pb - pr) / delta + 2;
+            else hue = (pr - pg) / delta + 4;
+            const bucket = buckets[Math.floor((hue / 6) * HUE_BUCKETS) % HUE_BUCKETS];
+            bucket.r += pr;
+            bucket.g += pg;
+            bucket.b += pb;
+            bucket.count += 1;
+            bucket.weight += delta / max;
         }
-        if (count === 0) return null;
-        return `${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)}`;
+        const best = buckets.reduce((top, bucket) => (bucket.weight > top.weight ? bucket : top));
+        if (best.count === 0) return null;
+        return `${Math.round(best.r / best.count)}, ${Math.round(best.g / best.count)}, ${Math.round(best.b / best.count)}`;
+    }
+
+    /**
+     * Keep the cover colour usable as a backdrop: vivid enough to read as the cover,
+     * never so light that white text on top of it suffers. "r, g, b" in and out.
+     */
+    function tuneAmbientColor(rgb) {
+        const [r, g, b] = String(rgb).split(',').map((part) => Number(part) / 255);
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const lightness = (max + min) / 2;
+        const delta = max - min;
+        let hue = 0;
+        if (delta) {
+            if (max === r) hue = ((g - b) / delta + 6) % 6;
+            else if (max === g) hue = (b - r) / delta + 2;
+            else hue = (r - g) / delta + 4;
+        }
+        const saturation = delta ? delta / (1 - Math.abs(2 * lightness - 1)) : 0;
+        const s = Math.min(Math.max(saturation, 0.45), 0.85);
+        const l = Math.min(Math.max(lightness, 0.38), 0.52);
+
+        // HSL back to RGB.
+        const chroma = (1 - Math.abs(2 * l - 1)) * s;
+        const x = chroma * (1 - Math.abs((hue % 2) - 1));
+        const [r1, g1, b1] = [[chroma, x, 0], [x, chroma, 0], [0, chroma, x], [0, x, chroma], [x, 0, chroma], [chroma, 0, x]][Math.floor(hue) % 6];
+        const m = l - chroma / 2;
+        return [r1, g1, b1].map((value) => Math.round((value + m) * 255)).join(', ');
     }
 
     function computeBurnInOffset(random = Math.random) {
@@ -191,7 +227,7 @@
                 leaders.innerHTML = state.idleData.leaders.slice(0, 3).map((leader, index) => `
                     <li>
                         <span class="idle-rank">${String(index + 1).padStart(2, '0')}</span>
-                        <span class="idle-name">${escapeHtml(leader.display_name)}</span>
+                        <span class="idle-name" lang="${i18n()?.contentLang?.(leader.display_name) ?? ''}">${escapeHtml(leader.display_name)}</span>
                         <span class="idle-score" ${tattrs('idle.score', { points: Math.round(Number(leader.rank_score ?? leader.score ?? 0)) })}>${escapeHtml(tx('idle.score', { points: Math.round(Number(leader.rank_score ?? leader.score ?? 0)) }))}</span>
                     </li>`).join('');
             }
@@ -260,7 +296,10 @@
 
         // ---------- Album-colour ambient glow ----------
         function setGlow(rgb) {
-            doc.documentElement.style.setProperty('--album-glow-rgb', rgb || DEFAULT_GLOW);
+            const color = rgb || DEFAULT_GLOW;
+            doc.documentElement.style.setProperty('--album-glow-rgb', color);
+            // Registered <color> (studio.css @property), so the backdrop fades between songs.
+            doc.documentElement.style.setProperty('--album-color', `rgb(${color})`);
         }
 
         function applyAlbumGlow(coverUrl) {
@@ -279,7 +318,8 @@
                     canvas.height = 24;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, 24, 24);
-                    setGlow(pickAmbientColor(ctx.getImageData(0, 0, 24, 24).data));
+                    const picked = pickAmbientColor(ctx.getImageData(0, 0, 24, 24).data);
+                    setGlow(picked && tuneAmbientColor(picked));
                 } catch {
                     setGlow(DEFAULT_GLOW); // cover host without CORS: keep the brand red
                 }
@@ -325,6 +365,7 @@
         create,
         findNewRequests,
         pickAmbientColor,
+        tuneAmbientColor,
         computeBurnInOffset,
     };
 });

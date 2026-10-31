@@ -33,7 +33,8 @@ const tr = {
   'login.guestLabel': 'Misafir olarak devam et',
   'login.guestPlaceholder': 'Adın nedir?',
   'login.quickStart': 'Hızlı başla',
-  'login.guestHelp': 'Misafirler 1 şarkı ekleyebilir. Üyeler her 6 saatte 5 şarkı ekleyebilir.',
+  'login.guestHelp': 'Misafirler 1 şarkı ekleyebilir. Daha fazlası için üye girişi yap.',
+  'login.guestNameTooShort': 'Devam etmek için en az 2 harflik bir ad yaz.',
   'login.memberLogin': 'Üye girişi',
   'login.welcome': 'Hoş geldin',
   'login.deviceCode': 'Cihaz kodu',
@@ -43,6 +44,7 @@ const tr = {
   'login.switchAccount': 'Farklı hesapla giriş',
   'login.account': 'RadioTEDU hesabı',
   'login.username': 'Kullanıcı adı / e-posta',
+  'login.emailPlaceholder': 'ornek@tedu.edu.tr',
   'login.password': 'Şifre',
   'login.submit': 'Giriş yap',
   'login.submitting': 'Giriş yapılıyor...',
@@ -75,6 +77,8 @@ const tr = {
   'lyrics.none': 'Söz yok',
   'lyrics.loading': 'Sözler yükleniyor...',
   'lyrics.empty': 'Müziğin ritmine kulak ver 🎶',
+  'lyrics.unavailable': 'Ulaşılamıyor',
+  'lyrics.unavailableBody': 'Sözlere şu an ulaşılamıyor. Birazdan tekrar denenecek.',
 
   'status.online': 'YAYINDA',
   'status.offline': 'ÇEVRİMDIŞI',
@@ -139,7 +143,7 @@ const tr = {
   'toast.loginCheck': 'Giriş yapılamadı. Bilgilerinizi kontrol edin.',
   'toast.voteFailed': 'Oy verme başarısız oldu.',
   'toast.songAdded': 'Şarkı kuyruğa eklendi!',
-  'toast.guestLimit': 'Misafir limitin doldu. Giriş yap veya üye ol; her 6 saatte 5 şarkı ekleyebilirsin.',
+  'toast.guestLimit': 'Misafir limitin doldu. Daha fazla şarkı eklemek için üye girişi yap.',
   'toast.memberQuota': '6 saatlik 5 şarkı ekleme hakkınız dolmuştur',
   'toast.songAddFailed': 'Şarkı eklenemedi.',
 
@@ -341,7 +345,8 @@ const en: Record<MessageKey, string> = {
   'login.guestLabel': 'Continue as a guest',
   'login.guestPlaceholder': "What's your name?",
   'login.quickStart': 'Quick start',
-  'login.guestHelp': 'Guests can add 1 song. Members can add 5 songs every 6 hours.',
+  'login.guestHelp': 'Guests can add 1 song. Sign in as a member to add more.',
+  'login.guestNameTooShort': 'Enter a name with at least 2 letters to continue.',
   'login.memberLogin': 'Member sign-in',
   'login.welcome': 'Welcome',
   'login.deviceCode': 'Device code',
@@ -351,6 +356,7 @@ const en: Record<MessageKey, string> = {
   'login.switchAccount': 'Use a different account',
   'login.account': 'RadioTEDU account',
   'login.username': 'Username / email',
+  'login.emailPlaceholder': 'you@tedu.edu.tr',
   'login.password': 'Password',
   'login.submit': 'Sign in',
   'login.submitting': 'Signing in...',
@@ -383,6 +389,8 @@ const en: Record<MessageKey, string> = {
   'lyrics.none': 'No lyrics',
   'lyrics.loading': 'Loading lyrics...',
   'lyrics.empty': 'Just feel the beat 🎶',
+  'lyrics.unavailable': 'Unavailable',
+  'lyrics.unavailableBody': "Lyrics can't be reached right now. Trying again shortly.",
 
   'status.online': 'ON AIR',
   'status.offline': 'OFFLINE',
@@ -447,7 +455,7 @@ const en: Record<MessageKey, string> = {
   'toast.loginCheck': "Couldn't sign in. Check your details.",
   'toast.voteFailed': "Couldn't save your vote.",
   'toast.songAdded': 'Song added to the queue',
-  'toast.guestLimit': "You've reached the guest limit. Sign in or sign up to add 5 songs every 6 hours.",
+  'toast.guestLimit': "You've reached the guest limit. Sign in as a member to add more songs.",
   'toast.memberQuota': "You've used your 5 songs for this 6-hour window",
   'toast.songAddFailed': "Couldn't add the song.",
 
@@ -629,6 +637,15 @@ export function translate(lang: Lang, key: MessageKey, params?: Record<string, s
 export function detectInitialLang(stored: string | null, browserLang: string | undefined): Lang {
   if (stored === 'tr' || stored === 'en') return stored;
   return browserLang?.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+}
+
+/**
+ * Language of user-written text (names, song titles), for the `lang` attribute.
+ * Uppercase styling follows `lang`, so an English name on the Turkish UI must not
+ * turn "i" into "İ"; text with Turkish letters keeps Turkish casing.
+ */
+export function contentLang(text: string | null | undefined): Lang {
+  return /[çğıöşüÇĞİÖŞÜ]/.test(text ?? '') ? 'tr' : 'en';
 }
 
 export function readInitialLang(): Lang {

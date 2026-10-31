@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MESSAGES, detectInitialLang, translate } from './i18n';
+import { MESSAGES, contentLang, detectInitialLang, translate } from './i18n';
 
 describe('i18n dictionaries', () => {
   it('defines every key in both languages with non-empty text', () => {
@@ -39,5 +39,14 @@ describe('detectInitialLang', () => {
     expect(detectInitialLang(null, 'TR')).toBe('tr');
     expect(detectInitialLang(null, 'de-DE')).toBe('en');
     expect(detectInitialLang('fr', undefined)).toBe('en');
+  });
+});
+
+describe('contentLang', () => {
+  it('keeps Turkish casing only for text with Turkish letters', () => {
+    expect(contentLang('Design Test')).toBe('en');
+    expect(contentLang('İşim Olmaz')).toBe('tr');
+    expect(contentLang('Işık')).toBe('tr');
+    expect(contentLang(null)).toBe('en');
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import extras from './kiosk-extras.js';
 
-const { findNewRequests, pickAmbientColor, computeBurnInOffset } = extras;
+const { findNewRequests, pickAmbientColor, tuneAmbientColor, computeBurnInOffset } = extras;
 
 describe('findNewRequests', () => {
     const queue = [
@@ -36,6 +36,35 @@ describe('pickAmbientColor', () => {
 
     it('returns null for a cover with no usable colour', () => {
         expect(pickAmbientColor([...pixel(10, 10, 10), ...pixel(240, 240, 240)])).toBeNull();
+    });
+
+    it('picks the dominant hue instead of mixing hues into mud', () => {
+        const pixels = [
+            ...pixel(30, 60, 200),
+            ...pixel(40, 70, 210),
+            ...pixel(35, 65, 205),
+            ...pixel(220, 180, 30),
+        ];
+        expect(pickAmbientColor(pixels)).toBe('35, 65, 205');
+    });
+});
+
+describe('tuneAmbientColor', () => {
+    const lightness = (rgb) => {
+        const values = rgb.split(',').map(Number);
+        return (Math.max(...values) + Math.min(...values)) / 2 / 255;
+    };
+
+    it('lifts a dark muddy cover colour so it reads as a colour', () => {
+        const tuned = tuneAmbientColor('60, 30, 20');
+        expect(lightness(tuned)).toBeGreaterThanOrEqual(0.37);
+        const [r, g, b] = tuned.split(',').map(Number);
+        expect(r).toBeGreaterThan(g);
+        expect(g).toBeGreaterThan(b);
+    });
+
+    it('darkens a pale colour so white text stays readable', () => {
+        expect(lightness(tuneAmbientColor('250, 220, 230'))).toBeLessThanOrEqual(0.53);
     });
 });
 

@@ -64,6 +64,8 @@
         'lyrics.notFound': 'Bu şarkı için söz bulunamadı 🎵',
         'lyrics.unavailable': 'Müziğin ritmine kulak ver 🎶',
         'lyrics.waiting': 'Müzik bekliyor...',
+        'lyrics.offline': 'Ulaşılamıyor',
+        'lyrics.outage': 'Sözlere şu an ulaşılamıyor. Birazdan tekrar denenecek.',
 
         'qr.label': 'KATIL',
         'qr.stepsLabel': 'Nasıl katılırım',
@@ -95,6 +97,7 @@
 
         'startup.title': "Jukebox'u Başlatmak İçin Tıklayın",
         'startup.message': 'Tarayıcı ses kısıtlamasını aşmak için gereklidir',
+        'startup.start': "Jukebox'u başlat",
         'startup.spotifyConnect': 'Spotify Bağla',
         'startup.spotifyFootnote': 'Bu kiosk kendi Spotify hesabıyla bağlanmadan Spotify şarkıları çalamaz.',
 
@@ -162,6 +165,8 @@
         'lyrics.notFound': 'No lyrics found for this song 🎵',
         'lyrics.unavailable': 'Just feel the beat 🎶',
         'lyrics.waiting': 'Waiting for music...',
+        'lyrics.offline': 'Unavailable',
+        'lyrics.outage': "Lyrics can't be reached right now. Trying again shortly.",
 
         'qr.label': 'JOIN',
         'qr.stepsLabel': 'How to join',
@@ -193,6 +198,7 @@
 
         'startup.title': 'Click to start the jukebox',
         'startup.message': 'Needed to get past the browser’s audio restrictions',
+        'startup.start': 'Start the jukebox',
         'startup.spotifyConnect': 'Connect Spotify',
         'startup.spotifyFootnote': "This kiosk can't play Spotify songs until it's connected to its own Spotify account.",
 
@@ -307,7 +313,17 @@
         el.setAttribute('data-i18n', key);
         if (params) el.setAttribute('data-i18n-params', JSON.stringify(params));
         else el.removeAttribute('data-i18n-params');
+        el.removeAttribute('lang');
         el.textContent = t(key, params);
+    }
+
+    /**
+     * Language of user-written text (names, song titles), for the `lang` attribute.
+     * Uppercase styling follows `lang`, so an English name on the Turkish UI must not
+     * turn "i" into "İ"; text with Turkish letters keeps Turkish casing.
+     */
+    function contentLang(text) {
+        return /[çğıöşüÇĞİÖŞÜ]/.test(String(text ?? '')) ? 'tr' : 'en';
     }
 
     /** Sets plain (untranslated) text, dropping any key so a language switch leaves it alone. */
@@ -316,6 +332,7 @@
         el.removeAttribute('data-i18n');
         el.removeAttribute('data-i18n-params');
         el.textContent = text;
+        el.setAttribute('lang', contentLang(text));
     }
 
     function getLang() {
@@ -399,6 +416,7 @@
         applyTranslations,
         setText,
         setPlainText,
+        contentLang,
         getLang,
         setLang,
         onChange,

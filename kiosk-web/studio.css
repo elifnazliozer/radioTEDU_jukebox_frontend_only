@@ -3,7 +3,16 @@
  * Mirrors the controller: ink black, RadioTEDU red, paper white, heavy uppercase
  * Albert Sans, mono section labels and sharp 2px corners.
  */
+
+/* Cover colour set by kiosk-extras.js. Registered as a <color> so gradients using it can fade. */
+@property --album-color {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: rgb(237, 28, 36);
+}
+
 :root {
+    transition: --album-color 1.6s ease;
     --s-ink: #0b0b0c;
     --s-panel: #111113;
     --s-panel-2: #18181b;
@@ -45,9 +54,8 @@
 body {
     /* --album-glow-rgb follows the current cover (set by kiosk-extras.js); brand red otherwise. */
     background:
-        radial-gradient(circle at 30% -10%, rgba(var(--album-glow-rgb, 237, 28, 36), 0.22), transparent 42rem),
+        radial-gradient(circle at 30% -10%, color-mix(in srgb, var(--album-color) 22%, transparent), transparent 42rem),
         var(--s-ink);
-    transition: background 1.2s ease;
 }
 
 body::before {
@@ -207,7 +215,8 @@ body::before {
 .studio-ticker-track {
     display: flex;
     width: max-content;
-    animation: kiosk-ticker 40s linear infinite;
+    /* Each half repeats the words 5× (~4300px) so it covers a 4K wall with no gap; slow enough to keep the old speed. */
+    animation: kiosk-ticker 200s linear infinite;
 }
 
 .studio-ticker-track > span {
@@ -267,16 +276,27 @@ body::before {
 }
 
 .kiosk-label > span:first-child {
-    color: var(--s-red-text);
+    color: var(--s-accent);
 }
 
 .stage-panel {
     padding: clamp(22px, 2.6vw, 48px);
+    /* Room for the absolute "01 / NOW PLAYING" label so centred content never slides under it. */
+    padding-top: calc(clamp(22px, 2.6vw, 48px) + 52px);
     background:
-        radial-gradient(circle at 20% 40%, rgba(var(--album-glow-rgb, 237, 28, 36), 0.18), transparent 55%),
-        linear-gradient(180deg, rgba(var(--album-glow-rgb, 237, 28, 36), 0.06), transparent 40%),
+        radial-gradient(circle at 20% 40%, color-mix(in srgb, var(--album-color) 18%, transparent), transparent 55%),
+        linear-gradient(180deg, color-mix(in srgb, var(--album-color) 6%, transparent), transparent 40%),
         var(--s-panel);
-    transition: background 1.2s ease;
+}
+
+/* While a song plays the whole stage takes the cover's colour, like Spotify's now-playing view. */
+.stage-panel:has(.playing-state:not(.hidden)) {
+    background:
+        radial-gradient(ellipse 60% 70% at 22% 50%, color-mix(in srgb, var(--album-color) 38%, transparent), transparent 70%),
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--album-color) 52%, var(--s-panel)) 0%,
+            color-mix(in srgb, var(--album-color) 26%, var(--s-panel)) 45%,
+            color-mix(in srgb, var(--album-color) 8%, var(--s-panel)) 100%);
 }
 
 .stage-label {
@@ -371,7 +391,8 @@ body::before {
 .playing-state {
     width: min(100%, 1180px);
     grid-template-columns: minmax(240px, 34%) minmax(0, 1fr);
-    gap: clamp(60px, 8vw, 150px);
+    /* Wider than the vinyl's overhang (26% of the cover) so it never reaches the details. */
+    gap: clamp(80px, 9vw, 160px);
 }
 
 .album-wrapper {
@@ -383,8 +404,7 @@ body::before {
     border-radius: 0;
     filter: blur(70px);
     opacity: 0.55;
-    background: rgb(var(--album-glow-rgb, 237, 28, 36)) !important;
-    transition: background 1.2s ease;
+    background: var(--album-color) !important;
 }
 
 .album-container {
@@ -399,9 +419,9 @@ body::before {
     content: '';
     position: absolute;
     z-index: -1;
-    top: 6%;
-    right: -38%;
-    width: 88%;
+    top: 8%;
+    right: -26%;
+    width: 84%;
     aspect-ratio: 1;
     border-radius: 50%;
     background:
@@ -450,12 +470,23 @@ body::before {
 
 .song-title {
     margin: 18px 0 0;
-    font-size: clamp(48px, 5.6vw, 110px);
+    font-size: clamp(40px, 3.8vw, 76px);
     font-weight: 900;
-    line-height: 0.9;
+    line-height: 0.95;
     letter-spacing: -0.035em;
-    text-transform: uppercase;
-    overflow-wrap: anywhere;
+    /*
+     * No text-transform: under lang="tr" "Winner" became "WİNNER", and under English rules
+     * Turkish titles would lose their İ. The title is shown exactly as written.
+     */
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    /* Long titles stop at two lines instead of pushing the progress and lyrics down. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    padding-bottom: 0.06em;
     color: var(--s-paper);
     background: none;
     -webkit-text-fill-color: currentColor;
@@ -514,7 +545,7 @@ body::before {
     margin-top: clamp(20px, 2vw, 30px);
     padding: 16px 20px;
     border: 1px solid var(--s-line);
-    border-left: 3px solid var(--s-red);
+    border-left: 3px solid var(--s-accent);
     background: var(--s-ink);
     box-shadow: none;
     backdrop-filter: none;
@@ -532,7 +563,7 @@ body::before {
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--s-red-text);
+    color: var(--s-accent);
 }
 
 .lyrics-header-left .material-symbols-rounded {
@@ -556,11 +587,14 @@ body::before {
 }
 
 .lyrics-badge:not(.plain):not(.none) {
-    border-color: var(--s-red);
-    color: var(--s-red-text);
+    border-color: var(--s-accent);
+    color: var(--s-accent);
 }
 
+/* Fixed box: the card is the same height for loading, plain and synced lyrics. */
 .lyrics-scroller {
+    height: 176px;
+    max-height: none;
     overflow-x: hidden;
 }
 
@@ -836,6 +870,17 @@ body::before {
     transform: none;
 }
 
+.startup-button.is-secondary {
+    margin-top: 10px;
+    border-color: var(--s-line-strong, rgba(255, 255, 255, 0.24));
+    background: transparent;
+}
+
+.startup-button.is-secondary:hover {
+    border-color: var(--s-red);
+    background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .studio-ticker-track,
     .album-container::after,
@@ -857,6 +902,7 @@ body::before {
 
     .stage-panel {
         display: block;
+        padding-top: clamp(22px, 2.6vw, 48px);
     }
 
     .album-container::after {

@@ -44,14 +44,14 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--s-red-text);
+  color: var(--s-accent);
 }
 
 .studio-kicker::before {
   content: '';
   width: 28px;
   height: 2px;
-  background: var(--s-red);
+  background: var(--s-accent);
 }
 
 .studio-login-hero h1 {
@@ -80,7 +80,7 @@
   width: min(100%, 460px);
   padding: 18px 20px;
   border: 1px solid var(--s-line);
-  border-left: 3px solid var(--s-red);
+  border-left: 3px solid var(--s-accent);
   border-radius: var(--s-radius);
   background: var(--s-panel);
 }
@@ -157,6 +157,17 @@
   font-size: 13px;
   line-height: 1.5;
   color: var(--s-faint);
+}
+
+.studio-field-error {
+  margin: -4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--s-red-text);
+}
+
+.studio .arcade-input.studio-input[aria-invalid='true'] {
+  border-color: var(--s-red);
 }
 
 .studio .arcade-input.studio-input,
@@ -287,6 +298,8 @@
 
 .studio .user-ticket.studio-ticket .studio-avatar {
   flex-shrink: 0;
+  /* Phones make the header avatar transparent; the ticket keeps its paper tile so the dark initial stays visible. */
+  background: var(--s-paper);
   color: var(--s-ink);
   font-size: 16px;
 }
@@ -308,7 +321,7 @@
 .studio .modal-card {
   position: relative;
   border: 1px solid var(--s-line-strong);
-  border-top: 3px solid var(--s-red);
+  border-top: 3px solid var(--s-accent);
   border-radius: var(--s-radius);
   background: var(--s-panel);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
@@ -322,7 +335,7 @@
 .studio .modal-card .eyebrow {
   font-family: var(--s-mono);
   letter-spacing: 0.14em;
-  color: var(--s-red-text);
+  color: var(--s-accent);
 }
 
 .studio .modal-card.compact {
