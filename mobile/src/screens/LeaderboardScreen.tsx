@@ -1,0 +1,306 @@
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useNavigation} from '@react-navigation/native';
+import GlobalHeader from '../components/GlobalHeader';
+import PageTransition from '../components/PageTransition';
+import {COLORS, SPACING} from '../theme/theme';
+import api from '../services/api';
+import {MarketItem, fetchMarketItems} from '../services/gamificationService';
+
+type LeaderboardPeriod = 'total' | 'monthly';
+type LeaderboardCategory = 'total' | 'listening' | 'events' | 'games' | 'social' | 'jukebox';
+
+const categories: Array<{value: LeaderboardCategory; label: string}> = [
+  {value: 'total', label: 'Genel'},
+  {value: 'jukebox', label: 'Jukebox'},
+  {value: 'listening', label: 'Dinleme'},
+  {value: 'events', label: 'Etkinlik'},
+  {value: 'games', label: 'Oyun'},
+  {value: 'social', label: 'Sosyal'},
+];
+
+const LeaderboardScreen = () => {
+  const navigation = useNavigation<any>();
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [market, setMarket] = useState<MarketItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [period, setPeriod] = useState<LeaderboardPeriod>('total');
+  const [category, setCategory] = useState<LeaderboardCategory>('total');
+  const requestSeqRef = useRef(0);
+
+  useEffect(() => {
+    fetchLeaderboard(period, category);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, category]);
+
+  useEffect(() => {
+    fetchMarketItems()
+      .then(setMarket)
+      .catch((error) => console.error('Failed to fetch leaderboard market:', error));
+  }, []);
+
+  const fetchLeaderboard = async (
+    nextPeriod: LeaderboardPeriod = period,
+    nextCategory: LeaderboardCategory = category,
+  ) => {
+    const requestSeq = ++requestSeqRef.current;
+    setLoading(true);
+
+    try {
+      const response = await api.get('/users/leaderboard', {
+        params: {
+          period: nextPeriod,
+          category: nextCategory,
+        },
+      });
+
+      if (requestSeq !== requestSeqRef.current) {
+        return;
+      }
+
+      setLeaderboard(response.data.data.leaderboard || []);
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    } finally {
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchLeaderboard(period, category);
+  };
+
+  const renderItem = ({item, index}: {item: any; index: number}) => {
+    let rankColor = COLORS.text;
+    let rankIcon = null;
+
+    if (index === 0) {
+      rankColor = '#FFD700';
+      rankIcon = 'crown';
+    } else if (index === 1) {
+      rankColor = '#C0C0C0';
+      rankIcon = 'medal';
+    } else if (index === 2) {
+      rankColor = '#CD7F32';
+      rankIcon = 'medal-outline';
+    }
+
+    return (
+      <View style={styles.itemContainer}>
+        <View style={styles.rankContainer}>
+          {rankIcon ? (
+            <Icon name={rankIcon} size={24} color={rankColor} />
+          ) : (
+            <Text style={styles.rankText}>{index + 1}</Text>
+          )}
+        </View>
+
+        <Image
+          source={{uri: item.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.display_name)}&background=random&color=fff`}}
+          style={styles.avatar}
+        />
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.name}>{item.display_name}</Text>
+          <Text style={styles.songsAdded}>{item.total_songs_added} şarkı · {item.monthly_rank_score || 0} aylık</Text>
+        </View>
+
+        <View style={styles.pointsContainer}>
+          <Text style={styles.points}>{item.score ?? item.monthly_rank_score ?? item.rank_score ?? 0}</Text>
+          <Text style={styles.pointsLabel}>Puan</Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <PageTransition>
+      <SafeAreaView style={styles.container}>
+        <GlobalHeader />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Sıralama</Text>
+          <Text style={styles.headerSubtitle}>
+            {category === 'total' ? 'Genel rank puanı' : 'Kategori bazlı rekabet'}
+          </Text>
+          <View style={styles.periodToggle}>
+            {(['total', 'monthly'] as const).map((value) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => setPeriod(value)}
+                style={[
+                  styles.periodButton,
+                  period === value && styles.periodButtonActive,
+                ]}>
+                <Text
+                  style={[
+                    styles.periodButtonText,
+                    period === value && styles.periodButtonTextActive,
+                  ]}>
+                  {value === 'monthly' ? 'Aylık' : 'Total'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+            {categories.map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                onPress={() => setCategory(item.value)}
+                style={[styles.categoryChip, category === item.value && styles.categoryChipActive]}>
+                <Text style={[styles.categoryChipText, category === item.value && styles.categoryChipTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {loading && !refreshing ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={leaderboard}
+            renderItem={renderItem}
+            keyExtractor={(item, index) => String(item.id ?? index)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListFooterComponent={
+              <View style={styles.marketBlock}>
+                <View style={styles.marketHeader}>
+                  <Text style={styles.marketTitle}>Sıralama marketi</Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Market')}>
+                    <Text style={styles.marketAction}>Market</Text>
+                  </TouchableOpacity>
+                </View>
+                {market.slice(0, 4).map((item) => (
+                  <View key={item.id} style={styles.rewardRow}>
+                    <Icon name="shopping-outline" size={20} color={COLORS.primary} />
+                    <Text style={styles.rewardText} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.rewardCost}>{item.cost_points} XP</Text>
+                  </View>
+                ))}
+              </View>
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+            }
+          />
+        )}
+      </SafeAreaView>
+    </PageTransition>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {flex: 1, backgroundColor: COLORS.background},
+  header: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerTitle: {fontSize: 24, fontWeight: '900', color: COLORS.text},
+  headerSubtitle: {fontSize: 14, color: COLORS.textMuted, marginTop: 4},
+  periodToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: SPACING.md,
+  },
+  periodButton: {
+    flex: 1,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  periodButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  periodButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  periodButtonTextActive: {
+    color: '#fff',
+  },
+  categoryRow: {
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+  },
+  categoryChip: {
+    borderRadius: 999,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryChipActive: {
+    backgroundColor: 'rgba(227,30,36,0.18)',
+    borderColor: COLORS.primary,
+  },
+  categoryChipText: {color: COLORS.textMuted, fontSize: 12, fontWeight: '800'},
+  categoryChipTextActive: {color: COLORS.text},
+  center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  listContent: {padding: SPACING.md},
+  itemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    borderRadius: 12,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  rankContainer: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  rankText: {fontSize: 18, fontWeight: 'bold', color: COLORS.textMuted},
+  avatar: {width: 40, height: 40, borderRadius: 20, marginRight: SPACING.md},
+  infoContainer: {flex: 1},
+  name: {fontSize: 16, fontWeight: 'bold', color: COLORS.text},
+  songsAdded: {fontSize: 12, color: COLORS.textMuted, marginTop: 2},
+  pointsContainer: {alignItems: 'flex-end'},
+  points: {fontSize: 16, fontWeight: 'bold', color: COLORS.primary},
+  pointsLabel: {fontSize: 10, color: COLORS.textMuted},
+  marketBlock: {marginTop: SPACING.lg, padding: SPACING.md, borderRadius: 20, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border},
+  marketHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm},
+  marketTitle: {color: COLORS.text, fontSize: 17, fontWeight: '900'},
+  marketAction: {color: COLORS.primary, fontSize: 13, fontWeight: '900'},
+  rewardRow: {flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.sm},
+  rewardText: {flex: 1, color: COLORS.text, fontSize: 13, fontWeight: '700'},
+  rewardCost: {color: COLORS.primary, fontWeight: '900'},
+});
+
+export default LeaderboardScreen;

@@ -1,0 +1,753 @@
+/*
+ * RadioTEDU studio theme for the admin console modal.
+ * Tokens come from studio.css; the legacy index.css variables are remapped so
+ * every admin rule that reads them picks up the studio palette.
+ */
+.studio-admin {
+  --rt-red: var(--s-red);
+  --rt-red-dark: var(--s-red-dark);
+  --amber: var(--s-red-text);
+  --amber-soft: var(--s-red-soft);
+  --accent-red: var(--s-red);
+  --line: var(--s-line);
+  --line-strong: var(--s-line-strong);
+  --text: var(--s-paper);
+  --muted: var(--s-muted);
+  --faint: var(--s-faint);
+  --panel: var(--s-panel);
+  --panel-2: var(--s-panel-2);
+  --panel-3: var(--s-panel-3);
+  --shadow: none;
+  --bezel: none;
+
+  color: var(--s-paper);
+}
+
+/* Sharp corners everywhere except status dots and native toggles. */
+.studio-admin :where(*):not(.status-light, input[type='checkbox'], input[type='radio']) {
+  border-radius: var(--s-radius);
+}
+
+.studio-admin :focus-visible {
+  outline: 2px solid var(--s-red);
+  outline-offset: 2px;
+}
+
+.studio-admin input[type='checkbox'],
+.studio-admin input[type='radio'],
+.studio-admin input[type='range'] {
+  accent-color: var(--s-red);
+}
+
+/* ---------- Shell ---------- */
+
+.studio-admin.admin-modal-screen {
+  background: rgba(11, 11, 12, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.studio-admin .admin-modal-card {
+  border: 1px solid var(--s-line-strong);
+  border-top: 3px solid var(--s-red);
+  background: var(--s-ink);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
+}
+
+.studio-admin .admin-modal-card::before,
+.studio-admin .admin-modal-card::after {
+  display: none;
+}
+
+.studio-admin .admin-console-fullscreen {
+  background: var(--s-ink);
+}
+
+.studio-admin .admin-top-bar {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--s-line);
+  background: var(--s-ink);
+}
+
+.studio-admin .admin-shield-icon {
+  border: 0;
+  background: var(--s-red);
+  color: #fff;
+}
+
+.studio-admin .admin-title-row h2 {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--s-paper);
+}
+
+.studio-admin .admin-badge-red {
+  padding: 4px 7px;
+  font-family: var(--s-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.studio-admin .admin-sub-info {
+  margin-top: 5px;
+  font-family: var(--s-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--s-muted);
+}
+
+.studio-admin .admin-sub-info strong {
+  color: var(--s-paper);
+}
+
+.studio-admin .admin-status-pill {
+  border: 1px solid var(--s-line-strong);
+  background: var(--s-panel);
+  font-family: var(--s-mono);
+  font-weight: 700;
+  color: var(--s-paper);
+}
+
+.studio-admin .quick-action-btn,
+.studio-admin .admin-modal-close-btn {
+  min-height: 38px;
+  border: 1px solid var(--s-line-strong);
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-paper);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.studio-admin .quick-action-btn:hover,
+.studio-admin .admin-modal-close-btn:hover {
+  border-color: var(--s-paper);
+  background: var(--s-panel-3);
+  color: var(--s-paper);
+}
+
+/* ---------- Tabs ---------- */
+
+.studio-admin .admin-tabs-nav {
+  gap: 0;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--s-line);
+  background: var(--s-panel);
+}
+
+.studio-admin .admin-tab-btn {
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 transparent;
+  color: var(--s-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.studio-admin .admin-tab-btn:hover {
+  background: transparent;
+  color: var(--s-paper);
+}
+
+.studio-admin .admin-tab-btn.active {
+  border: 0;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--s-red);
+  color: var(--s-paper);
+}
+
+.studio-admin .tab-pill-badge {
+  font-family: var(--s-mono);
+  font-weight: 700;
+  background: var(--s-panel-3);
+}
+
+/* ---------- Content ---------- */
+
+.studio-admin .admin-content-viewport {
+  padding: 24px;
+  background: var(--s-ink);
+}
+
+.studio-admin .admin-section-title-wrap,
+.studio-admin .admin-section-title-wrap h3 {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--s-paper);
+}
+
+.studio-admin .section-heading span,
+.studio-admin .target-select-label {
+  font-family: var(--s-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--s-red-text);
+}
+
+.studio-admin .admin-card-panel,
+.studio-admin .admin-section,
+.studio-admin .spotify-config,
+.studio-admin .admin-form,
+.studio-admin .inline-edit {
+  border: 1px solid var(--s-line);
+  background: var(--s-panel);
+  box-shadow: none;
+}
+
+.studio-admin .panel-title-bar h4 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.studio-admin .hint-strip {
+  border: 1px solid var(--s-line);
+  border-left: 3px solid var(--s-line-strong);
+  background: var(--s-panel);
+  color: var(--s-muted);
+}
+
+.studio-admin .hint-strip code {
+  font-family: var(--s-mono);
+  color: var(--s-red-text);
+}
+
+.studio-admin .spotify-guarantee-banner {
+  border: 1px solid rgba(47, 212, 125, 0.28);
+  border-left: 3px solid #2fd47d;
+  background: var(--s-panel);
+  box-shadow: none;
+}
+
+.studio-admin .empty-panel,
+.studio-admin .empty-panel-dashed,
+.studio-admin .no-devices-note {
+  border: 1px dashed var(--s-line-strong);
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-muted);
+}
+
+.studio-admin .device-card,
+.studio-admin .song-row,
+.studio-admin .spotify-dev-card,
+.studio-admin .kiosk-mapping-row {
+  border: 1px solid var(--s-line);
+  background: var(--s-panel);
+  box-shadow: none;
+}
+
+.studio-admin .device-card.active,
+.studio-admin .kiosk-mapping-row.active-kiosk,
+.studio-admin .spotify-dev-card.is-playing {
+  border-color: var(--s-red);
+  box-shadow: inset 3px 0 0 var(--s-red);
+}
+
+.studio-admin .kiosk-code,
+.studio-admin .spotify-dev-id,
+.studio-admin .provisioning-code {
+  font-family: var(--s-mono);
+}
+
+/* ---------- Controls ---------- */
+
+.studio-admin .arcade-input,
+.studio-admin select,
+.studio-admin textarea {
+  border: 1px solid var(--s-line-strong);
+  background: var(--s-ink);
+  box-shadow: none;
+  color: var(--s-paper);
+}
+
+.studio-admin .arcade-input::placeholder,
+.studio-admin textarea::placeholder {
+  color: var(--s-faint);
+}
+
+.studio-admin .arcade-input:focus,
+.studio-admin select:focus,
+.studio-admin textarea:focus {
+  outline: none;
+  border-color: var(--s-red);
+}
+
+.studio-admin .arcade-button,
+.studio-admin .file-button,
+.studio-admin .section-heading button,
+.studio-admin .device-actions button,
+.studio-admin .mini-btn,
+.studio-admin .playback-target-btn {
+  border: 1px solid var(--s-line-strong);
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-paper);
+  letter-spacing: 0.04em;
+}
+
+.studio-admin .arcade-button:hover:not(:disabled),
+.studio-admin .file-button:hover,
+.studio-admin .section-heading button:hover,
+.studio-admin .device-actions button:hover:not(:disabled),
+.studio-admin .mini-btn:hover,
+.studio-admin .playback-target-btn:hover {
+  border-color: var(--s-paper);
+  background: var(--s-panel-3);
+  color: var(--s-paper);
+}
+
+.studio-admin .arcade-button.primary,
+.studio-admin .playback-target-btn.selected {
+  border-color: var(--s-red);
+  background: var(--s-red);
+  color: #fff;
+}
+
+.studio-admin .arcade-button.primary:hover:not(:disabled),
+.studio-admin .playback-target-btn.selected:hover {
+  border-color: var(--s-red-dark);
+  background: var(--s-red-dark);
+  color: #fff;
+}
+
+.studio-admin .danger,
+.studio-admin .arcade-button.danger {
+  color: var(--s-red-text);
+}
+
+.studio-admin .danger:hover:not(:disabled) {
+  border-color: var(--s-red);
+}
+
+.studio-admin .state-pill,
+.studio-admin .spotify-pill,
+.studio-admin .state-badge,
+.studio-admin .kiosk-output-pill,
+.studio-admin .current-kiosk-badge {
+  font-family: var(--s-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .studio-admin.admin-modal-screen {
+    padding: 0;
+  }
+
+  .studio-admin .admin-modal-card {
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+  }
+
+  .studio-admin .admin-top-bar,
+  .studio-admin .admin-content-viewport {
+    padding: 16px;
+  }
+
+  .studio-admin .admin-tabs-nav {
+    padding: 0 8px;
+  }
+
+  .studio-admin .admin-title-row {
+    flex-wrap: wrap;
+  }
+
+  .studio-admin .admin-title-row h2 {
+    font-size: 17px;
+  }
+
+  .studio-admin .admin-content-viewport * {
+    min-width: 0;
+  }
+
+  .studio-admin .device-card {
+    flex-wrap: wrap;
+  }
+
+  .studio-admin .device-card > * {
+    flex: 1 1 100%;
+  }
+}
+
+.studio-admin .custom-scrollbar,
+.studio-admin .admin-content-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: var(--s-panel-3) transparent;
+}
+
+/* ---------- Leaderboard (shares the admin token remap) ---------- */
+
+.studio-leaderboard .modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 460px);
+  max-height: min(86vh, 720px);
+  padding: 20px 24px 24px;
+  border: 1px solid var(--s-line-strong);
+  border-top: 3px solid var(--s-red);
+  background:
+    radial-gradient(circle at 50% -30%, rgba(237, 28, 36, 0.16), transparent 22rem),
+    var(--s-panel);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+.studio-leaderboard .lb-grabber {
+  display: none;
+}
+
+.studio-leaderboard .lb-label {
+  margin-bottom: 18px;
+  text-transform: uppercase;
+}
+
+.studio-leaderboard .lb-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: -10px 0 -6px;
+  border: 1px solid var(--s-line-strong);
+  background: transparent;
+  color: var(--s-muted);
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.studio-leaderboard .lb-close:hover {
+  border-color: var(--s-paper);
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .lb-title {
+  margin: 0;
+  font-size: clamp(36px, 10vw, 48px);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .lb-subtitle {
+  margin: 8px 0 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--s-muted);
+}
+
+.studio-leaderboard .segmented-control {
+  position: relative;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 0;
+  margin-bottom: 14px;
+  border: 1px solid var(--s-line-strong);
+  background: transparent;
+}
+
+/* The red block slides under the buttons instead of jumping between them. */
+.studio-leaderboard .segmented-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  background: var(--s-red);
+  transition: transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.studio-leaderboard .segmented-control[data-period='monthly'] .segmented-indicator {
+  transform: translateX(100%);
+}
+
+.studio-leaderboard .segmented-control button {
+  position: relative;
+  z-index: 1;
+  min-height: 42px;
+  transition: color 200ms ease;
+  font-family: var(--s-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--s-muted);
+}
+
+.studio-leaderboard .segmented-control button:hover:not(.active) {
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .segmented-control button.active {
+  background: transparent;
+  color: #fff;
+}
+
+/* Rows mirror the queue list: mono index, square avatar, cyan score. */
+.studio-leaderboard .leaderboard-list {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-right: -8px;
+  padding-right: 8px;
+  overflow-y: auto;
+}
+
+.studio-leaderboard .lb-row {
+  display: grid;
+  grid-template-columns: 24px 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--s-line);
+}
+
+.studio-leaderboard .lb-row:last-child {
+  border-bottom: 0;
+}
+
+.studio-leaderboard .lb-row.is-winner {
+  background: var(--s-red-soft);
+  box-shadow: inset 3px 0 0 var(--s-red);
+}
+
+.studio-leaderboard .lb-rank {
+  font-family: var(--s-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--s-faint);
+}
+
+.studio-leaderboard .lb-row:nth-child(-n + 3) .lb-rank {
+  color: var(--s-accent);
+}
+
+.studio-leaderboard .lb-row.is-winner .lb-rank {
+  color: var(--s-red-text);
+}
+
+.studio-leaderboard .lb-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--s-line-strong);
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .lb-row.is-winner .lb-avatar {
+  border-color: var(--s-red);
+  background: var(--s-red);
+  color: #fff;
+}
+
+.studio-leaderboard .lb-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.studio-leaderboard .lb-copy strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .lb-copy small,
+.studio-leaderboard .lb-score small {
+  font-family: var(--s-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--s-muted);
+}
+
+.studio-leaderboard .lb-score {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.studio-leaderboard .lb-score strong {
+  font-family: var(--s-mono);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--s-accent);
+}
+
+/* Same dashed, left-aligned empty state as the queue. */
+.studio-leaderboard .lb-empty {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 2px;
+  padding: 16px;
+  border: 1px dashed var(--s-line-strong);
+  color: var(--s-muted);
+}
+
+.studio-leaderboard .lb-empty svg {
+  grid-row: span 2;
+  color: var(--s-faint);
+}
+
+.studio-leaderboard .lb-empty strong {
+  font-size: 15px;
+  color: var(--s-paper);
+}
+
+.studio-leaderboard .lb-empty span {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Phones: a bottom sheet instead of a floating box. */
+@media (max-width: 520px) {
+  .studio-leaderboard.modal-screen {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .studio-leaderboard .modal-card {
+    width: 100%;
+    max-height: 85dvh;
+    padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+  }
+
+  /* Higher specificity than the shared animation shorthand further down. */
+  .studio-leaderboard.modal-screen .modal-card {
+    animation-name: leaderboard-sheet-in;
+  }
+
+  .studio-leaderboard.modal-screen.is-closing .modal-card {
+    animation-name: leaderboard-sheet-out;
+  }
+
+  .studio-leaderboard .lb-grabber {
+    display: block;
+    flex-shrink: 0;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto 14px;
+    border-radius: 999px;
+    background: var(--s-line-strong);
+  }
+}
+
+/* ---------- Leaderboard open / close and period switch ---------- */
+
+.studio-leaderboard {
+  animation: leaderboard-fade-in 200ms ease both;
+}
+
+.studio-leaderboard .modal-card {
+  animation: leaderboard-card-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+.studio-leaderboard.is-closing {
+  animation: leaderboard-fade-out 200ms ease both;
+}
+
+.studio-leaderboard.is-closing .modal-card {
+  animation: leaderboard-card-out 180ms ease both;
+}
+
+.studio-leaderboard .leaderboard-list.slide-next {
+  animation: admin-slide-next 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.studio-leaderboard .leaderboard-list.slide-prev {
+  animation: admin-slide-prev 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes leaderboard-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes leaderboard-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes leaderboard-card-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+}
+
+@keyframes leaderboard-card-out {
+  to { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+
+@keyframes leaderboard-sheet-in {
+  from { transform: translateY(100%); }
+}
+
+@keyframes leaderboard-sheet-out {
+  to { transform: translateY(100%); }
+}
+
+/* Reduced motion keeps a 1ms animation so the close still fires animationend. */
+@media (prefers-reduced-motion: reduce) {
+  .studio-leaderboard,
+  .studio-leaderboard.is-closing,
+  .studio-leaderboard .modal-card,
+  .studio-leaderboard .leaderboard-list {
+    animation-duration: 1ms !important;
+  }
+
+  .studio-leaderboard .segmented-indicator {
+    transition: none;
+  }
+}
+
+/* ---------- Tab switch: content slides in from the tab's side ---------- */
+
+.studio-admin .admin-content-viewport.slide-next {
+  animation: admin-slide-next 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.studio-admin .admin-content-viewport.slide-prev {
+  animation: admin-slide-prev 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes admin-slide-next {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes admin-slide-prev {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-admin .admin-content-viewport.slide-next,
+  .studio-admin .admin-content-viewport.slide-prev {
+    animation: none;
+  }
+}

@@ -1,0 +1,632 @@
+/*
+ * Wall-display extras (kiosk-extras.js): QR guide, karaoke lyrics, up-next card,
+ * hidden controls, offline notice, request toasts, idle rotation, burn-in shift.
+ * Loaded after studio.css and uses its tokens.
+ */
+
+.kiosk-app {
+    transition: transform 6s ease-in-out;
+}
+
+/* ---------- Technical controls appear only after pointer activity ---------- */
+
+.device-badge,
+.connection-badge,
+.logout-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+body.controls-visible .device-badge,
+body.controls-visible .connection-badge,
+body.controls-visible .logout-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ---------- Language toggle (shares the logout button look) ---------- */
+
+/* Language switch: short crossfade of the whole screen (View Transitions API). */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: ease;
+}
+
+.lang-toggle-btn {
+    font-family: var(--s-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+/* Translated text nodes wrapped for data-i18n keep their parent's look. */
+.idle-title .idle-title-plain {
+    color: inherit;
+}
+
+.qr-step-text {
+    font-weight: inherit;
+}
+
+/* ---------- QR card: steps, big code ---------- */
+
+.qr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.qr-card .kiosk-label {
+    align-self: stretch;
+}
+
+.qr-steps {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 0;
+    list-style: none;
+    font-family: var(--s-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--s-paper);
+}
+
+.qr-steps li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.qr-steps li + li::before {
+    content: '\2192';
+    margin-right: 2px;
+    color: var(--s-faint);
+}
+
+.qr-steps span {
+    width: 22px;
+    height: 22px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--s-red);
+    color: #fff;
+    font-size: 12px;
+}
+
+.qr-container {
+    width: min(100%, clamp(150px, 11.5vw, 240px), 26vh);
+}
+
+.qr-card .kiosk-label {
+    margin-bottom: 12px;
+}
+
+.qr-steps {
+    margin-bottom: 12px;
+}
+
+.qr-code {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    padding: 10px;
+}
+
+.qr-hint {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    margin-top: 14px;
+    text-align: center;
+}
+
+.qr-code-label {
+    font-family: var(--s-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    color: var(--s-muted);
+}
+
+.qr-device-code {
+    font-family: var(--s-mono);
+    font-size: clamp(30px, 2.6vw, 48px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    color: var(--s-paper);
+}
+
+.qr-hint .qr-link {
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    word-break: break-all;
+    color: var(--s-faint) !important;
+    text-decoration: none;
+}
+
+/* ---------- Karaoke lyrics ---------- */
+
+.lyrics-card.is-karaoke .lyrics-scroller {
+    max-height: none;
+    min-height: clamp(150px, 20vh, 230px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.lyrics-card.is-karaoke .lyric-line {
+    display: none;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    text-align: left;
+    line-height: 1.15;
+    transition: color 0.3s ease, font-size 0.3s ease;
+}
+
+.lyrics-card.is-karaoke .lyric-line.near,
+.lyrics-card.is-karaoke .lyric-line.active {
+    display: block;
+}
+
+.lyrics-card.is-karaoke .lyric-line.near {
+    font-size: clamp(16px, 1.3vw, 22px);
+    font-weight: 600;
+    color: var(--s-faint);
+}
+
+.lyrics-card.is-karaoke .lyric-line.past.near {
+    color: rgba(247, 247, 244, 0.22);
+}
+
+.lyrics-card.is-karaoke .lyric-line.active {
+    padding: 4px 0 4px 14px;
+    font-size: clamp(28px, 2.8vw, 52px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: var(--s-paper);
+    background: none;
+    box-shadow: inset 4px 0 0 var(--s-accent);
+}
+
+/* ---------- Up next ---------- */
+
+/* Nobody scrolls a wall display: show what fits, starting with the next song. */
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+    gap: 0;
+    overflow: hidden;
+    padding-right: 0;
+}
+
+.queue-list > .queue-item,
+.queue-list > .empty-queue {
+    flex-shrink: 0;
+}
+
+.queue-item.up-next {
+    gap: 16px;
+    margin-bottom: 4px;
+    padding: 14px;
+    border: 1px solid var(--s-line-strong);
+    border-left: 3px solid var(--s-accent);
+    background: var(--s-panel);
+}
+
+.up-next-cover {
+    width: clamp(64px, 5.4vw, 92px);
+    aspect-ratio: 1;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: var(--s-panel-3);
+}
+
+.up-next-label {
+    margin-bottom: 4px;
+    font-family: var(--s-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--s-accent);
+}
+
+.queue-item.up-next .queue-song-title {
+    font-size: clamp(18px, 1.5vw, 24px);
+    font-weight: 900;
+    line-height: 1.1;
+    white-space: normal;
+}
+
+.up-next-requester {
+    margin-top: 6px;
+    font-family: var(--s-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--s-faint);
+}
+
+.up-next-requester strong {
+    color: var(--s-accent);
+}
+
+/* ---------- Offline notice ---------- */
+
+.kiosk-offline {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: grid;
+    place-items: center;
+    padding: 32px;
+    background: rgba(11, 11, 12, 0.94);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.kiosk-offline.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.kiosk-offline-card {
+    max-width: 720px;
+    padding: 40px;
+    border-left: 4px solid var(--s-red);
+    background: var(--s-panel);
+}
+
+.kiosk-offline-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin-bottom: 22px;
+    border-radius: 50%;
+    background: var(--s-red);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+.kiosk-offline-kicker {
+    margin: 0 0 10px;
+    font-family: var(--s-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: var(--s-red-text);
+}
+
+.kiosk-offline h2 {
+    margin: 0 0 12px;
+    font-size: clamp(36px, 4vw, 64px);
+    font-weight: 900;
+    line-height: 0.95;
+    text-transform: uppercase;
+    color: var(--s-paper);
+}
+
+.kiosk-offline-card > p:last-child {
+    margin: 0;
+    font-size: 18px;
+    color: var(--s-muted);
+}
+
+/* ---------- New request toast ---------- */
+
+.kiosk-request-toast {
+    position: fixed;
+    left: clamp(22px, 2.6vw, 48px);
+    bottom: clamp(22px, 2.6vw, 44px);
+    z-index: 8000;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: min(560px, 60vw);
+    padding: 14px 20px 14px 14px;
+    border: 1px solid var(--s-line-strong);
+    border-left: 4px solid var(--s-accent);
+    background: rgba(17, 17, 19, 0.96);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transform: translateY(24px);
+    pointer-events: none;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.kiosk-request-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.kiosk-request-toast img,
+.kiosk-request-toast-cover {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: var(--s-panel-3);
+}
+
+.kiosk-request-toast p {
+    margin: 0;
+}
+
+.kiosk-request-toast-kicker {
+    font-family: var(--s-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--s-accent);
+}
+
+.kiosk-request-toast .kiosk-request-toast-line {
+    margin-top: 4px;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--s-paper);
+}
+
+.kiosk-request-toast-line strong {
+    font-weight: 900;
+}
+
+.kiosk-request-toast .kiosk-request-toast-song {
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    color: var(--s-muted);
+}
+
+/* ---------- Idle rotation ---------- */
+
+.idle-slides {
+    position: relative;
+    width: 100%;
+    display: grid;
+}
+
+.idle-slide {
+    grid-area: 1 / 1;
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: clamp(18px, 2vw, 30px);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease, visibility 0.6s;
+}
+
+.idle-slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+.idle-kicker {
+    margin: 0;
+    font-family: var(--s-mono);
+    font-size: clamp(14px, 1.1vw, 18px);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--s-red-text);
+}
+
+.idle-steps {
+    display: grid;
+    gap: clamp(14px, 1.6vw, 26px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.idle-steps li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: clamp(18px, 2vw, 32px);
+    align-items: baseline;
+}
+
+.idle-steps span {
+    grid-row: span 2;
+    font-family: var(--s-mono);
+    font-size: clamp(36px, 3.6vw, 64px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--s-red);
+}
+
+.idle-steps strong {
+    font-size: clamp(48px, 5.6vw, 104px);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    color: var(--s-paper);
+}
+
+.idle-steps small {
+    font-size: clamp(16px, 1.3vw, 22px);
+    color: var(--s-muted);
+}
+
+.idle-leaders,
+.idle-recent {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.idle-leaders li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: clamp(18px, 2vw, 32px);
+    padding: clamp(10px, 1.2vw, 18px) 0;
+    border-bottom: 1px solid var(--s-line);
+}
+
+.idle-rank {
+    font-family: var(--s-mono);
+    font-size: clamp(28px, 2.6vw, 48px);
+    font-weight: 700;
+    color: var(--s-faint);
+}
+
+.idle-leaders li:first-child .idle-rank {
+    color: var(--s-accent);
+}
+
+.idle-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(36px, 4vw, 76px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: var(--s-paper);
+}
+
+.idle-score {
+    font-family: var(--s-mono);
+    font-size: clamp(14px, 1.1vw, 18px);
+    color: var(--s-muted);
+}
+
+.idle-recent li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--s-line);
+}
+
+.idle-recent img,
+.idle-recent-cover {
+    width: clamp(56px, 4.6vw, 84px);
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: var(--s-panel-3);
+}
+
+.idle-recent-copy {
+    display: grid;
+    min-width: 0;
+}
+
+.idle-recent-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(22px, 2vw, 36px);
+    font-weight: 900;
+    color: var(--s-paper);
+}
+
+.idle-recent-copy small {
+    font-size: clamp(14px, 1.1vw, 18px);
+    color: var(--s-muted);
+}
+
+/* Short wall screens (720p and similar): tighten the stage so nothing is cut off. */
+@media (max-height: 800px) {
+    .song-title {
+        margin-top: 12px;
+        font-size: clamp(40px, 4.6vw, 80px);
+    }
+
+    .song-artist {
+        margin-top: 8px;
+    }
+
+    .requester-info {
+        margin-top: 10px;
+    }
+
+    .progress-section {
+        margin-top: 16px;
+    }
+
+    .lyrics-card {
+        margin-top: 14px;
+        padding: 12px 16px;
+    }
+
+    .lyrics-card.is-karaoke .lyrics-scroller {
+        min-height: 128px;
+    }
+
+    .lyrics-card.is-karaoke .lyric-line.active {
+        font-size: clamp(24px, 2.4vw, 40px);
+    }
+
+    .queue-item.up-next {
+        padding: 10px;
+    }
+
+    .up-next-cover {
+        width: 60px;
+    }
+
+    .idle-state,
+    .idle-slide {
+        gap: 16px;
+    }
+
+    .idle-meter {
+        height: 36px;
+    }
+
+    .idle-subtitle {
+        font-size: 17px;
+    }
+
+    .qr-container {
+        width: min(100%, 150px, 22vh);
+    }
+
+    .qr-hint {
+        margin-top: 10px;
+    }
+
+    .empty-queue {
+        gap: 4px;
+        margin-top: 8px;
+        padding: 14px 16px;
+    }
+
+    .empty-queue .material-symbols-rounded {
+        font-size: 24px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .idle-slide,
+    .kiosk-request-toast,
+    .kiosk-app {
+        transition: none !important;
+    }
+
+    .kiosk-offline-dot {
+        animation: none !important;
+    }
+}
